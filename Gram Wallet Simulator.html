@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0B0D0F">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Gram Wallet</title>
+    
+    <!-- PWA Манифест для установки как приложение на Android/iOS -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Gram Wallet","short_name":"Gram Wallet","start_url":".","display":"standalone","background_color":"#0B0D0F","theme_color":"#0B0D0F","icons":[{"src":"https://placehold.co/192x192/2AABEE/FFFFFF?text=GW","sizes":"192x192","type":"image/png"},{"src":"https://placehold.co/512x512/2AABEE/FFFFFF?text=GW","sizes":"512x512","type":"image/png"}]}'>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                    },
+                    colors: {
+                        gw: {
+                            bg: '#0B0D0F',
+                            card: '#16191D',
+                            cardHover: '#1E2228',
+                            pill: '#16191D',
+                            pillActive: '#212B36',
+                            pillTextActive: '#38A3F8',
+                            blueStart: '#3AB6FF',
+                            blueMid: '#1389F5',
+                            blueEnd: '#0A68D8',
+                            mint: '#3CE5C0',
+                            textMuted: '#7E8691',
+                            green: '#2ED573',
+                            red: '#E84142',
+                            apyBg: '#162C29',
+                            apyText: '#38D39F'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Базовые настройки и скрытие скроллбаров для нативного мобильного вида */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        input, select, textarea {
+            user-select: text;
+        }
+        body {
+            background-color: #050607;
+            color: #FFFFFF;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Синяя градиентная карточка баланса с радиальными кругами как на скриншоте */
+        .balance-card {
+            background: 
+                repeating-radial-gradient(
+                    circle at 50% 42%,
+                    rgba(255, 255, 255, 0.03) 0px,
+                    rgba(255, 255, 255, 0.03) 1px,
+                    transparent 1px,
+                    transparent 12px
+                ),
+                radial-gradient(circle at 25% 20%, #52C4FF 0%, #198DF8 48%, #0A67D6 100%);
+            box-shadow: 0 12px 32px rgba(19, 137, 245, 0.22);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Мерцающие звездочки на карте */
+        .sparkle {
+            position: absolute;
+            pointer-events: none;
+            animation: twinkle 3.5s infinite ease-in-out;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.35; transform: scale(0.85); }
+            50% { opacity: 0.95; transform: scale(1.15); }
+        }
+
+        /* Плавное появление модальных окон снизу */
+        .sheet-enter {
+            animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0.5; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="flex justify-center min-h-screen">
+
+    <!-- Основной контейнер приложения (на ПК выглядит как экран смартфона, на телефоне на 100% ширины) -->
+    <div id="app-container" class="w-full max-w-[430px] min-h-screen bg-gw-bg relative flex flex-col justify-between pb-24 shadow-2xl border-x border-white/[0.04]">
+        
+        <!-- ВЕРХНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
+        <header class="sticky top-0 z-30 bg-gw-bg/90 backdrop-blur-md px-3.5 pt-3 pb-2.5 flex items-center justify-between gap-2">
+            <!-- Пилюля с вкладками -->
+            <div class="flex-1 bg-gw-pill rounded-full p-1 flex items-center justify-between overflow-x-auto no-scrollbar border border-white/[0.04]">
+                <button onclick="switchTab('wallet')" id="tab-wallet" class="nav-pill px-3.5 py-1.5 rounded-full text-[13.5px] font-semibold transition-all bg-gw-pillActive text-gw-pillTextActive whitespace-nowrap">
+                    Кошелёк
+                </button>
+                <button onclick="switchTab('market')" id="tab-market" class="nav-pill px-3 py-1.5 rounded-full text-[13.5px] font-medium transition-all text-gw-textMuted hover:text-white whitespace-nowrap">
+                    Маркет
+                </button>
+                <button onclick="switchTab('agent')" id="tab-agent" class="nav-pill px-3 py-1.5 rounded-full text-[13.5px] font-medium transition-all text-gw-textMuted hover:text-white whitespace-nowrap">
+                    Агент
+                </button>
+                <button onclick="switchTab('apps')" id="tab-apps" class="nav-pill px-3 py-1.5 rounded-full text-[13.5px] font-medium transition-all text-gw-textMuted hover:text-white whitespace-nowrap">
+                    Прил
+                </button>
+            </div>
+
+            <!-- Аватарка GW (открывает панель настройки баланса и розыгрыша) -->
+            <button onclick="openAdminModal()" title="Настройка баланса и валюты" class="relative shrink-0 w-10 h-10 rounded-full p-[2px] border border-gw-mint/50 flex items-center justify-center active:scale-90 transition-transform">
+                <div class="w-full h-full rounded-full bg-gw-mint flex items-center justify-center text-[#072620] font-extrabold text-[13px] tracking-tight shadow-inner">
+                    GW
+                </div>
+            </button>
+        </header>
+
+        <!-- ЭКРАН 1: КОШЕЛЁК (Главный экран как на скриншоте) -->
+        <main id="view-wallet" class="px-3.5 space-y-4 flex-1">
+            
+            <!-- СИНЯЯ КАРТОЧКА БАЛАНСА -->
+            <div onclick="openAdminModal()" class="balance-card w-full h-[215px] rounded-[24px] flex flex-col items-center justify-between py-4 px-5 cursor-pointer active:scale-[0.99] transition-transform">
+                <!-- Декоративные 4-конечные звездочки и точки как на скриншоте -->
+                <svg class="sparkle w-2.5 h-2.5 top-7 left-[21%]" style="animation-delay: 0.2s" viewBox="0 0 24 24" fill="white"><path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z"/></svg>
+                <svg class="sparkle w-2 h-2 top-3 left-[52%]" style="animation-delay: 1.1s" viewBox="0 0 24 24" fill="white"><path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z"/></svg>
+                <svg class="sparkle w-2.5 h-2.5 top-8 right-[14%]" style="animation-delay: 0.7s" viewBox="0 0 24 24" fill="white"><path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z"/></svg>
+                <svg class="sparkle w-3.5 h-3.5 bottom-11 right-[7%]" style="animation-delay: 1.8s" viewBox="0 0 24 24" fill="white"><path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z"/></svg>
+                <svg class="sparkle w-2 h-2 bottom-4 left-[7%]" style="animation-delay: 2.3s" viewBox="0 0 24 24" fill="white"><path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z"/></svg>
+                <div class="w-1 h-1 rounded-full bg-white/60 absolute top-14 right-[5%]"></div>
+                <div class="w-1 h-1 rounded-full bg-white/50 absolute bottom-9 left-[22%]"></div>
+
+                <!-- Пустой верхний отступ для идеального центрирования суммы -->
+                <div class="h-3"></div>
+
+                <!-- Крупный баланс -->
+                <div class="text-center z-10">
+                    <div id="total-balance-display" class="text-[44px] sm:text-[48px] font-extrabold tracking-tight text-white leading-none drop-shadow-sm">
+                        $0
+                    </div>
+                </div>
+
+                <!-- Нижняя подпись Gram Wallet + иконка QR -->
+                <button onclick="event.stopPropagation(); openQrModal()" class="z-10 flex items-center gap-1.5 text-white/90 hover:text-white text-[14px] font-medium py-1 px-2.5 rounded-full hover:bg-white/10 transition-colors">
+                    <span>Gram Wallet</span>
+                    <!-- Мини-иконка QR как на скриншоте -->
+                    <svg class="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="6" height="6" rx="1"/>
+                        <rect x="15" y="3" width="6" height="6" rx="1"/>
+                        <rect x="3" y="15" width="6" height="6" rx="1"/>
+                        <path d="M15 15h2v2h-2zM19 15h2v2h-2zM15 19h2v2h-2zM19 19h2v2h-2z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- 4 КРУГЛЫЕ КНОПКИ ДЕЙСТВИЙ -->
+            <div class="grid grid-cols-4 gap-2 pt-1 pb-1">
+                <button onclick="openActionModal('deposit')" class="flex flex-col items-center gap-2 group">
+                    <div class="w-[50px] h-[50px] rounded-full bg-[#1C2026] group-hover:bg-[#252A32] group-active:scale-95 transition-all flex items-center justify-center text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </div>
+                    <span class="text-[12.5px] font-medium text-white/90">Пополнить</span>
+                </button>
+
+                <button onclick="openActionModal('send')" class="flex flex-col items-center gap-2 group">
+                    <div class="w-[50px] h-[50px] rounded-full bg-[#1C2026] group-hover:bg-[#252A32] group-active:scale-95 transition-all flex items-center justify-center text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6"/>
+                        </svg>
+                    </div>
+                    <span class="text-[12.5px] font-medium text-white/90">Отправить</span>
+                </button>
+
+                <button onclick="switchTab('market')" class="flex flex-col items-center gap-2 group">
+                    <div class="w-[50px] h-[50px] rounded-full bg-[#1C2026] group-hover:bg-[#252A32] group-active:scale-95 transition-all flex items-center justify-center text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 10h14l-4-4m0 8H3l4 4"/>
+                        </svg>
+                    </div>
+                    <span class="text-[12.5px] font-medium text-white/90">Торговля</span>
+                </button>
+
+                <button onclick="openStakingModal()" class="flex flex-col items-center gap-2 group">
+                    <div class="w-[50px] h-[50px] rounded-full bg-[#1C2026] group-hover:bg-[#252A32] group-active:scale-95 transition-all flex items-center justify-center text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <ellipse cx="12" cy="7" rx="7" ry="3"/>
+                            <path d="M5 7v5c0 1.66 3.13 3 7 3s7-1.34 7-3V7"/>
+                            <path d="M5 12v5c0 1.66 3.13 3 7 3s7-1.34 7-3v-5"/>
+                        </svg>
+                    </div>
+                    <span class="text-[12.5px] font-medium text-white/90">Стейкинг</span>
+                </button>
+            </div>
+
+            <!-- СПИСОК АКТИВОВ (МОНЕТ) -->
+            <div id="assets-card" class="bg-gw-card rounded-[20px] px-4 py-2 divide-y divide-white/[0.04]">
+                <!-- Рендерится через JavaScript -->
+            </div>
+
+            <!-- БЛОК "ЛЕНТА" (ИСТОРИЯ ТРАНЗАКЦИЙ) -->
+            <div class="bg-gw-card rounded-[20px] p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-[14.5px] font-semibold text-[#38A3F8]">Лента</h2>
+                    <button onclick="openAdminModal('tx')" class="text-[12px] text-gw-textMuted hover:text-white transition-colors">
+                        + Добавить
+                    </button>
+                </div>
+
+                <!-- Пустое состояние как на скриншоте -->
+                <div id="feed-empty" class="py-10 text-center space-y-1.5">
+                    <div class="text-[15.5px] font-semibold text-white">Нет активности</div>
+                    <div class="text-[13px] text-gw-textMuted">История операций в этом кошельке пока отсутствует.</div>
+                </div>
+
+                <!-- Список транзакций -->
+                <div id="feed-list" class="hidden divide-y divide-white/[0.05] mt-1">
+                    <!-- Рендерится через JS -->
+                </div>
+            </div>
+
+            <!-- БЛОК "ОБЗОР" -->
+            <div class="bg-gw-card rounded-[20px] p-4 space-y-3">
+                <h2 class="text-[14.5px] font-semibold text-[#38A3F8]">Обзор</h2>
+                
+                <div onclick="switchTab('market')" class="flex items-center gap-3.5 cursor-pointer active:opacity-80 transition-opacity">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#6C8CFF] to-[#4E65FF] flex items-center justify-center shrink-0 shadow-md">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L2 7v2h20V7L12 2zm-7 9v7H3v2h18v-2h-2v-7h-2v7h-4v-7h-2v7H7v-7H5z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[15px] font-semibold text-white">Маркет</div>
+                        <div class="text-[12.5px] text-gw-textMuted truncate">Торгуйте криптовалютой и реальными активами</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ЭКРАН 2: МАРКЕТ (Обмен и курсы) -->
+        <section id="view-market" class="hidden px-3.5 space-y-4 flex-1">
+            <div class="bg-gw-card rounded-[22px] p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold">Быстрый обмен</h2>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-gw-apyBg text-gw-apyText font-medium">Без комиссии</span>
+                </div>
+
+                <!-- Отдаете -->
+                <div class="bg-gw-bg rounded-2xl p-3.5 space-y-2 border border-white/[0.05]">
+                    <div class="flex justify-between text-xs text-gw-textMuted">
+                        <span>Вы отдаете</span>
+                        <span id="swap-from-bal">Баланс: 0</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <input id="swap-from-amount" type="number" placeholder="0.00" oninput="calcSwap()" class="bg-transparent text-2xl font-bold text-white w-full focus:outline-none">
+                        <select id="swap-from-coin" onchange="calcSwap()" class="bg-[#1E2228] text-white font-semibold text-sm rounded-xl px-3 py-2 focus:outline-none">
+                            <option value="USDT">USDT</option>
+                            <option value="GRAM">GRAM</option>
+                            <option value="TON">TON</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Получаете -->
+                <div class="bg-gw-bg rounded-2xl p-3.5 space-y-2 border border-white/[0.05]">
+                    <div class="flex justify-between text-xs text-gw-textMuted">
+                        <span>Вы получаете</span>
+                        <span id="swap-rate-info">Курс: 1 : 1</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <input id="swap-to-amount" type="number" readonly placeholder="0.00" class="bg-transparent text-2xl font-bold text-[#38A3F8] w-full focus:outline-none">
+                        <select id="swap-to-coin" onchange="calcSwap()" class="bg-[#1E2228] text-white font-semibold text-sm rounded-xl px-3 py-2 focus:outline-none">
+                            <option value="GRAM">GRAM</option>
+                            <option value="USDT">USDT</option>
+                            <option value="TON">TON</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="executeSwap()" class="w-full py-3.5 rounded-2xl bg-[#198DF8] hover:bg-[#147CE0] active:scale-[0.98] transition-all font-semibold text-white text-[15px]">
+                    Обменять мгновенно
+                </button>
+            </div>
+
+            <!-- Котировки рынка -->
+            <div class="bg-gw-card rounded-[22px] p-4 space-y-3">
+                <h3 class="text-sm font-semibold text-[#38A3F8]">Котировки в реальном времени</h3>
+                <div id="market-list" class="divide-y divide-white/[0.05]"></div>
+            </div>
+        </section>
+
+        <!-- ЭКРАН 3: АГЕНТ (AI Помощник кошелька) -->
+        <section id="view-agent" class="hidden px-3.5 space-y-3 flex-1 flex flex-col">
+            <div class="bg-gw-card rounded-[22px] p-4 flex-1 flex flex-col justify-between min-h-[420px]">
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3 pb-2 border-b border-white/[0.06]">
+                        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#198DF8] to-[#3CE5C0] flex items-center justify-center font-bold text-black text-sm">AI</div>
+                        <div>
+                            <div class="font-semibold text-sm">Gram AI Агент</div>
+                            <div class="text-xs text-gw-green">● В сети</div>
+                        </div>
+                    </div>
+                    <div id="agent-messages" class="space-y-2.5 max-h-[300px] overflow-y-auto no-scrollbar text-sm">
+                        <div class="bg-[#1E2228] rounded-2xl rounded-tl-sm p-3 text-white/90">
+                            Привет! Я ваш персональный крипто-ассистент Gram Wallet. Спросите меня о текущем балансе или курсе монет.
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-3">
+                    <input id="agent-input" type="text" placeholder="Например: Какой мой баланс?" class="flex-1 bg-gw-bg rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none border border-white/[0.06]">
+                    <button onclick="askAgent()" class="px-4 py-2.5 rounded-xl bg-[#198DF8] font-semibold text-sm">→</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ЭКРАН 4: ПРИЛОЖЕНИЯ (Мини-приложения экосистемы) -->
+        <section id="view-apps" class="hidden px-3.5 space-y-3 flex-1">
+            <div class="bg-gw-card rounded-[22px] p-4 space-y-3">
+                <h2 class="text-[15px] font-semibold text-[#38A3F8]">Сервисы и Mini Apps</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div onclick="openAdminModal()" class="bg-gw-bg p-3.5 rounded-2xl border border-white/[0.05] cursor-pointer hover:border-[#38A3F8]/40 transition-colors">
+                        <div class="w-9 h-9 rounded-xl bg-[#198DF8]/20 text-[#38A3F8] flex items-center justify-center font-bold mb-2">⚙️</div>
+                        <div class="font-semibold text-sm">Режим Демо</div>
+                        <div class="text-xs text-gw-textMuted mt-0.5">Настройка баланса и чеков</div>
+                    </div>
+                    <div onclick="openStakingModal()" class="bg-gw-bg p-3.5 rounded-2xl border border-white/[0.05] cursor-pointer hover:border-[#3CE5C0]/40 transition-colors">
+                        <div class="w-9 h-9 rounded-xl bg-gw-apyBg text-gw-apyText flex items-center justify-center font-bold mb-2">%</div>
+                        <div class="font-semibold text-sm">Gram Staking</div>
+                        <div class="text-xs text-gw-textMuted mt-0.5">Доходность 13.53% годовых</div>
+                    </div>
+                    <div onclick="openQrModal()" class="bg-gw-bg p-3.5 rounded-2xl border border-white/[0.05] cursor-pointer">
+                        <div class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold mb-2">QR</div>
+                        <div class="font-semibold text-sm">Мой адрес</div>
+                        <div class="text-xs text-gw-textMuted mt-0.5">Получение TON и GRAM</div>
+                    </div>
+                    <div onclick="showInstallHelp()" class="bg-gw-bg p-3.5 rounded-2xl border border-white/[0.05] cursor-pointer">
+                        <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold mb-2">📲</div>
+                        <div class="font-semibold text-sm">Как приложение</div>
+                        <div class="text-xs text-gw-textMuted mt-0.5">Добавить на экран телефона</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- НИЖНЯЯ ПАНЕЛЬ ПОИСКА КАК НА СКРИНШОТЕ -->
+        <footer class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 bg-gradient-to-t from-gw-bg via-gw-bg/95 to-transparent pt-3 pb-3 px-3.5">
+            <div class="flex items-center gap-2">
+                <!-- Строка поиска "Искать или спросить" -->
+                <div class="flex-1 bg-[#16191D]/95 backdrop-blur-md border border-white/[0.07] rounded-full h-[46px] px-4 flex items-center gap-2.5 shadow-lg">
+                    <svg class="w-4 h-4 text-gw-textMuted shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="7"/>
+                        <path stroke-linecap="round" d="M20 20l-3.5-3.5"/>
+                    </svg>
+                    <input id="bottom-search" type="text" onkeydown="if(event.key==='Enter') handleBottomSearch()" placeholder="Искать или спросить" class="bg-transparent text-[14px] text-white placeholder-gw-textMuted w-full focus:outline-none">
+                </div>
+
+                <!-- Правая двойная пилюля: Сканер QR и кнопка "+" -->
+                <div class="bg-[#16191D]/95 backdrop-blur-md border border-white/[0.07] rounded-full h-[46px] px-2 flex items-center gap-1 shadow-lg">
+                    <button onclick="openQrModal()" title="Сканер QR" class="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-white/90 transition-colors">
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2M7 12h10"/>
+                        </svg>
+                    </button>
+                    <button onclick="openAdminModal()" title="Настроить баланс" class="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-white/90 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- МОДАЛЬНОЕ ОКНО: ПАНЕЛЬ НАСТРОЙКИ КОШЕЛЬКА (ДЛЯ РОЗЫГРЫША ДРУЗЕЙ)      -->
+    <!-- ===================================================================== -->
+    <div id="admin-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
+        <div class="sheet-enter bg-[#14171C] border border-white/10 w-full max-w-[430px] max-h-[90vh] rounded-t-[28px] sm:rounded-[28px] flex flex-col overflow-hidden">
+            
+            <!-- Шапка панели -->
+            <div class="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-[17px] text-white">Настройка баланса и данных</h3>
+                    <p class="text-xs text-gw-textMuted">Все изменения сохраняются автоматически</p>
+                </div>
+                <button onclick="closeModal('admin-modal')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/80 hover:text-white">✕</button>
+            </div>
+
+            <!-- Вкладки настроек -->
+            <div class="px-5 pt-3 flex gap-2 border-b border-white/[0.06] pb-3">
+                <button onclick="switchAdminTab('coins')" id="adm-tab-coins" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#198DF8] text-white">Монеты и Баланс</button>
+                <button onclick="switchAdminTab('tx')" id="adm-tab-tx" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 text-gw-textMuted">Добавить в Ленту</button>
+                <button onclick="switchAdminTab('general')" id="adm-tab-general" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 text-gw-textMuted">Валюта / Сброс</button>
+            </div>
+
+            <!-- Контент настроек -->
+            <div class="p-5 overflow-y-auto space-y-4 flex-1">
+                
+                <!-- ВКЛАДКА 1: МОНЕТЫ И БАЛАНС -->
+                <div id="adm-panel-coins" class="space-y-4">
+                    <!-- Переключатель ручного баланса на синей карте -->
+                    <div class="bg-gw-bg p-3.5 rounded-2xl border border-white/[0.06] space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-medium text-white/90">Считать баланс на карте автоматически</span>
+                            <input type="checkbox" id="auto-calc-toggle" checked onchange="toggleAutoCalc()" class="w-4 h-4 accent-[#198DF8]">
+                        </div>
+                        <div id="manual-balance-box" class="hidden pt-1">
+                            <label class="text-[11px] text-gw-textMuted block mb-1">Произвольный баланс на синей карте:</label>
+                            <input id="manual-balance-input" type="number" step="any" placeholder="Например: 145820" class="w-full bg-[#1C2026] rounded-xl px-3 py-2 text-sm font-bold text-white border border-white/10">
+                        </div>
+                    </div>
+
+                    <!-- Редактирование каждой монеты -->
+                    <div id="admin-coins-list" class="space-y-3">
+                        <!-- Заполняется из JS -->
+                    </div>
+                </div>
+
+                <!-- ВКЛАДКА 2: ДОБАВЛЕНИЕ ФЕЙКОВОЙ ТРАНЗАКЦИИ В ЛЕНТУ -->
+                <div id="adm-panel-tx" class="hidden space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-gw-textMuted block mb-1">Тип операции</label>
+                            <select id="tx-type" class="w-full bg-gw-bg rounded-xl px-3 py-2.5 text-sm text-white border border-white/10">
+                                <option value="in">Получено (+)</option>
+                                <option value="out">Отправлено (-)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gw-textMuted block mb-1">Монета</label>
+                            <select id="tx-coin" class="w-full bg-gw-bg rounded-xl px-3 py-2.5 text-sm text-white border border-white/10">
+                                <option value="GRAM">GRAM</option>
+                                <option value="USDT">USDT</option>
+                                <option value="TON">TON</option>
+                                <option value="NOT">NOT</option>
+                                <option value="BTC">BTC</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-gw-textMuted block mb-1">Количество монет</label>
+                            <input id="tx-amount" type="number" step="any" value="2500" class="w-full bg-gw-bg rounded-xl px-3 py-2.5 text-sm text-white border border-white/10">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gw-textMuted block mb-1">Дата / Время</label>
+                            <input id="tx-date" type="text" value="Сегодня, 23:10" class="w-full bg-gw-bg rounded-xl px-3 py-2.5 text-sm text-white border border-white/10">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-gw-textMuted block mb-1">Адрес / Отправитель</label>
+                        <input id="tx-address" type="text" value="UQBx7...9fK2 (Binance)" class="w-full bg-gw-bg rounded-xl px-3 py-2.5 text-sm text-white border border-white/10">
+                    </div>
+
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="checkbox" id="tx-apply-balance" checked class="w-4 h-4 accent-[#198DF8]">
+                        <label for="tx-apply-balance" class="text-xs text-white/80">Также изменить баланс этой монеты</label>
+                    </div>
+
+                    <button onclick="addFakeTransaction()" class="w-full py-3 rounded-xl bg-gw-green text-black font-bold text-sm hover:opacity-90 transition-opacity">
+                        + Добавить операцию в Ленту
+                    </button>
+
+                    <button onclick="clearTransactions()" class="w-full py-2.5 rounded-xl bg-white/5 text-gw-red text-xs font-semibold hover:bg-white/10">
+                        Очистить всю историю операций
+                    </button>
+                </div>
+
+                <!-- ВКЛАДКА 3: ВАЛЮТА И БЫСТРЫЕ ПРЕСЕТЫ -->
+                <div id="adm-panel-general" class="hidden space-y-4">
+                    <div>
+                        <label class="text-xs text-gw-textMuted block mb-1.5">Отображаемая валюта</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="setCurrency('$', 1)" class="curr-btn py-2.5 rounded-xl bg-gw-bg border border-white/10 font-bold text-sm hover:border-[#198DF8]">$ USD</button>
+                            <button onclick="setCurrency('€', 0.92)" class="curr-btn py-2.5 rounded-xl bg-gw-bg border border-white/10 font-bold text-sm hover:border-[#198DF8]">€ EUR</button>
+                            <button onclick="setCurrency('₽', 96.5)" class="curr-btn py-2.5 rounded-xl bg-gw-bg border border-white/10 font-bold text-sm hover:border-[#198DF8]">₽ RUB</button>
+                            <button onclick="setCurrency('₴', 41.4)" class="curr-btn py-2.5 rounded-xl bg-gw-bg border border-white/10 font-bold text-sm hover:border-[#198DF8]">₴ UAH</button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs text-gw-textMuted block">Быстрые пресеты для розыгрыша:</label>
+                        <button onclick="applyPreset('whale')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#198DF8]/20 to-[#3CE5C0]/20 border border-[#38A3F8]/40 text-left flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-bold text-white">💎 Крипто-кит ($128,450)</div>
+                                <div class="text-[11px] text-gw-textMuted">Много GRAM, USDT и TON + входящие переводы</div>
+                            </div>
+                            <span class="text-xs text-[#38A3F8] font-semibold">Выбрать</span>
+                        </button>
+
+                        <button onclick="applyPreset('rich')" class="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-left flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-bold text-white">🚀 Успешный трейдер ($14,290)</div>
+                                <div class="text-[11px] text-gw-textMuted">Рост +18.4% и свежие выплаты</div>
+                            </div>
+                            <span class="text-xs text-[#38A3F8] font-semibold">Выбрать</span>
+                        </button>
+
+                        <button onclick="applyPreset('zero')" class="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-left flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-bold text-white">🔄 Сбросить на $0 (как на скрине)</div>
+                                <div class="text-[11px] text-gw-textMuted">Исходное состояние с нулевым балансом</div>
+                            </div>
+                            <span class="text-xs text-gw-textMuted font-semibold">Сброс</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Кнопка сохранения -->
+            <div class="p-4 border-t border-white/[0.07] bg-[#14171C]">
+                <button onclick="saveAdminChanges()" class="w-full py-3.5 rounded-2xl bg-[#198DF8] hover:bg-[#147CE0] font-bold text-white text-[15px] shadow-lg">
+                    Готово и применить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- МОДАЛЬНОЕ ОКНО: ПОПОЛНИТЬ / ОТПРАВИТЬ                                 -->
+    <!-- ===================================================================== -->
+    <div id="action-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
+        <div class="sheet-enter bg-[#14171C] border border-white/10 w-full max-w-[430px] rounded-t-[28px] sm:rounded-[28px] p-5 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 id="action-modal-title" class="font-bold text-lg">Пополнить кошелёк</h3>
+                <button onclick="closeModal('action-modal')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">✕</button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs text-gw-textMuted block mb-1">Выберите актив</label>
+                    <select id="action-coin" class="w-full bg-gw-bg rounded-xl px-3.5 py-3 text-sm font-semibold text-white border border-white/10">
+                        <option value="GRAM">Gram (GRAM)</option>
+                        <option value="USDT">Tether USD (USDT)</option>
+                        <option value="TON">Toncoin (TON)</option>
+                        <option value="NOT">Notcoin (NOT)</option>
+                        <option value="BTC">Bitcoin (BTC)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs text-gw-textMuted block mb-1">Сумма (количество монет)</label>
+                    <input id="action-amount" type="number" step="any" placeholder="1000" class="w-full bg-gw-bg rounded-xl px-3.5 py-3 text-xl font-bold text-white border border-white/10 focus:outline-none focus:border-[#198DF8]">
+                </div>
+
+                <div id="action-address-wrap">
+                    <label class="text-xs text-gw-textMuted block mb-1">Адрес кошелька</label>
+                    <input id="action-address" type="text" value="UQDr9x...4mLp" class="w-full bg-gw-bg rounded-xl px-3.5 py-2.5 text-sm text-white border border-white/10">
+                </div>
+            </div>
+
+            <button onclick="submitQuickAction()" id="action-submit-btn" class="w-full py-3.5 rounded-2xl bg-[#198DF8] font-bold text-white text-[15px]">
+                Подтвердить
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- МОДАЛЬНОЕ ОКНО: QR-КОД КОШЕЛЬКА                                       -->
+    <!-- ===================================================================== -->
+    <div id="qr-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
+        <div class="sheet-enter bg-[#14171C] border border-white/10 w-full max-w-[430px] rounded-t-[28px] sm:rounded-[28px] p-5 text-center space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-base">Мой адрес Gram Wallet</h3>
+                <button onclick="closeModal('qr-modal')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">✕</button>
+            </div>
+            
+            <div class="bg-white p-4 rounded-2xl inline-block mx-auto shadow-lg">
+                <!-- Векторный стилизованный QR код -->
+                <svg class="w-44 h-44 text-[#0B0D0F]" viewBox="0 0 100 100" fill="currentColor">
+                    <path d="M10 10h25v25H10V10zm5 5v15h15V15H15zm5 5h5v5h-5v-5zm45-10h25v25H65V10zm5 5v15h15V15H70zm5 5h5v5h-5v-5zM10 65h25v25H10V65zm5 5v15h15V70H15zm5 5h5v5h-5v-5zm25-65h5v10h-5V10zm10 5h5v5h-5v-5zM45 25h10v5H45v-5zm-5 15h15v5H40v-5zm20 0h10v10H60V40zm15 5h15v5H75v-5zM10 45h10v10H10V45zm15 5h10v5H25v-5zm20 5h10v15H45V55zm15 10h10v5H60v-5zm15-5h15v10H75V60zM45 75h5v15h-5V75zm10 5h15v10H55V80zm20 0h15v10H75V80z"/>
+                </svg>
+            </div>
+
+            <div class="bg-gw-bg rounded-xl p-3 text-xs font-mono text-white/80 break-all border border-white/[0.06]">
+                UQC8k9mP4vL2xR7tN5wQ1zJ8hF3dG6sA9yE0bV4cX7nM2kL9
+            </div>
+
+            <button onclick="copyWalletAddress()" class="w-full py-3 rounded-xl bg-[#198DF8] font-semibold text-sm text-white">
+                Скопировать адрес
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- МОДАЛЬНОЕ ОКНО: СТЕЙКИНГ                                              -->
+    <!-- ===================================================================== -->
+    <div id="staking-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
+        <div class="sheet-enter bg-[#14171C] border border-white/10 w-full max-w-[430px] rounded-t-[28px] sm:rounded-[28px] p-5 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-lg">Стейкинг Gram</h3>
+                <button onclick="closeModal('staking-modal')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">✕</button>
+            </div>
+            <div class="bg-gradient-to-r from-[#162C29] to-[#132229] border border-[#38D39F]/30 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-gw-apyText font-semibold">Текущая ставка APY</div>
+                    <div class="text-2xl font-extrabold text-white mt-0.5">13.53%</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-gw-textMuted">Выплаты</div>
+                    <div class="text-sm font-semibold text-white">Каждый день</div>
+                </div>
+            </div>
+            <p class="text-xs text-gw-textMuted leading-relaxed">
+                Получайте пассивный доход в токенах GRAM без блокировки средств. Начисления поступают напрямую на ваш баланс.
+            </p>
+            <button onclick="claimStakingReward()" class="w-full py-3.5 rounded-2xl bg-gw-mint text-[#072620] font-bold text-sm">
+                Начислить тестовую награду (+50 GRAM)
+            </button>
+        </div>
+    </div>
+
+    <!-- ВСПЛЫВАЮЩЕЕ УВЕДОМЛЕНИЕ (TOAST) -->
+    <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] bg-[#212B36] text-white border border-[#38A3F8]/40 px-4 py-2.5 rounded-full text-xs font-semibold shadow-xl opacity-0 pointer-events-none transition-opacity duration-200">
+        Готово
+    </div>
+
+    <script>
+        // =========================================================================
+        // СОСТОЯНИЕ ПРИЛОЖЕНИЯ (Хранится в localStorage)
+        // =========================================================================
+        const DEFAULT_STATE = {
+            currencySymbol: '$',
+            currencyRate: 1, // курс относительно USD
+            autoCalcBalance: true,
+            manualBalance: 0,
+            coins: [
+                {
+                    id: 'GRAM',
+                    name: 'Gram',
+                    symbol: 'GRAM',
+                    balance: 0,
+                    priceUsd: 0.95,
+                    changePercent: -5.31,
+                    apy: '13.53%',
+                    badge: null,
+                    enabled: true
+                },
+                {
+                    id: 'USDT',
+                    name: 'Tether USD',
+                    symbol: 'USD₮',
+                    balance: 0,
+                    priceUsd: 1.00,
+                    changePercent: 0,
+                    apy: null,
+                    badge: 'TON',
+                    enabled: true
+                },
+                {
+                    id: 'TON',
+                    name: 'Toncoin',
+                    symbol: 'TON',
+                    balance: 0,
+                    priceUsd: 5.42,
+                    changePercent: 4.18,
+                    apy: null,
+                    badge: null,
+                    enabled: false
+                },
+                {
+                    id: 'NOT',
+                    name: 'Notcoin',
+                    symbol: 'NOT',
+                    balance: 0,
+                    priceUsd: 0.0084,
+                    changePercent: 12.60,
+                    apy: null,
+                    badge: 'TON',
+                    enabled: false
+                },
+                {
+                    id: 'BTC',
+                    name: 'Bitcoin',
+                    symbol: 'BTC',
+                    balance: 0,
+                    priceUsd: 94500,
+                    changePercent: 2.35,
+                    apy: null,
+                    badge: null,
+                    enabled: false
+                }
+            ],
+            transactions: []
+        };
+
+        let state = JSON.parse(localStorage.getItem('gram_wallet_state')) || JSON.parse(JSON.stringify(DEFAULT_STATE));
+        let currentQuickAction = 'deposit';
+
+        function saveState() {
+            localStorage.setItem('gram_wallet_state', JSON.stringify(state));
+        }
+
+        // =========================================================================
+        // ФОРМАТИРОВАНИЕ ЧИСЕЛ И ВАЛЮТЫ
+        // =========================================================================
+        function formatMoney(usdAmount, isBigCard = false) {
+            const converted = usdAmount * state.currencyRate;
+            const sym = state.currencySymbol;
+            
+            if (converted === 0) return `${sym}0`;
+            
+            // Если число целое или очень большое
+            if (Number.isInteger(converted) || (isBigCard && converted >= 1000 && Math.abs(converted - Math.round(converted)) < 0.01)) {
+                return `${sym}${Math.round(converted).toLocaleString('en-US')}`;
+            }
+            
+            return `${sym}${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function formatCoinAmount(amount) {
+            if (amount === 0) return '0';
+            if (Number.isInteger(amount)) return amount.toLocaleString('en-US');
+            return amount.toLocaleString('en-US', { maximumFractionDigits: 4 });
+        }
+
+        // =========================================================================
+        // ИКОНКИ МОНЕТ (SVG как на скриншоте)
+        // =========================================================================
+        function getCoinIconHtml(id) {
+            if (id === 'GRAM') {
+                return `
+                    <div class="w-10 h-10 rounded-full bg-[#2AABEE] flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 21.5L3.2 9.4C2.8 8.8 3.2 8 3.9 8h16.2c.7 0 1.1.8.7 1.4L12 21.5z"/>
+                            <path d="M6.5 4h11l3 4h-17l3-4z" opacity="0.85"/>
+                        </svg>
+                    </div>
+                `;
+            }
+            if (id === 'USDT') {
+                return `
+                    <div class="relative w-10 h-10 shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-[#1BA27A] flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 21.5L3 9.5 6.5 4.5h11L21 9.5l-9 12z" opacity="0.25"/>
+                                <path d="M7 7h10v2.2h-3.8v2.1c2.5.15 4.3.65 4.3 1.25s-1.8 1.1-4.3 1.25V18h-2.4v-4.2c-2.5-.15-4.3-.65-4.3-1.25s1.8-1.1 4.3-1.25V9.2H7V7z"/>
+                            </svg>
+                        </div>
+                        <div class="w-4 h-4 rounded-full bg-[#2AABEE] border-2 border-[#16191D] absolute -bottom-0.5 -right-0.5 flex items-center justify-center">
+                            <svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 20L4 8h16l-8 12z"/>
+                            </svg>
+                        </div>
+                    </div>
+                `;
+            }
+            if (id === 'TON') {
+                return `
+                    <div class="w-10 h-10 rounded-full bg-[#0098EA] flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                            <path d="M12 20L4.5 7.5C4 6.7 4.6 5.5 5.6 5.5h12.8c1 0 1.6 1.2 1.1 2L12 20z"/>
+                            <path d="M12 5.5V20"/>
+                        </svg>
+                    </div>
+                `;
+            }
+            if (id === 'NOT') {
+                return `
+                    <div class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-black text-base shrink-0">
+                        ▼
+                    </div>
+                `;
+            }
+            return `
+                <div class="w-10 h-10 rounded-full bg-[#F7931A] text-white flex items-center justify-center font-bold text-base shrink-0">
+                    ₿
+                </div>
+            `;
+        }
+
+        // =========================================================================
+        // ОТРИСОВКА ГЛАВНОГО ЭКРАНА
+        // =========================================================================
+        function renderApp() {
+            // 1. Расчет общего баланса
+            let totalUsd = 0;
+            state.coins.forEach(c => {
+                if (c.enabled) {
+                    totalUsd += c.balance * c.priceUsd;
+                }
+            });
+
+            const displayUsd = state.autoCalcBalance ? totalUsd : Number(state.manualBalance || 0);
+            const totalEl = document.getElementById('total-balance-display');
+            totalEl.textContent = formatMoney(displayUsd, true);
+            
+            // Адаптивный размер шрифта, если сумма огромная
+            if (totalEl.textContent.length > 9) {
+                totalEl.className = 'text-[34px] sm:text-[38px] font-extrabold tracking-tight text-white leading-none drop-shadow-sm';
+            } else {
+                totalEl.className = 'text-[44px] sm:text-[48px] font-extrabold tracking-tight text-white leading-none drop-shadow-sm';
+            }
+
+            // 2. Список активов
+            const assetsCard = document.getElementById('assets-card');
+            const enabledCoins = state.coins.filter(c => c.enabled);
+            
+            assetsCard.innerHTML = enabledCoins.map(coin => {
+                const usdVal = coin.balance * coin.priceUsd;
+                const priceFormatted = formatMoney(coin.priceUsd);
+                
+                let changeHtml = '';
+                if (coin.changePercent > 0) {
+                    changeHtml = `<span class="text-gw-green ml-1">+${coin.changePercent.toFixed(2)}%</span>`;
+                } else if (coin.changePercent < 0) {
+                    changeHtml = `<span class="text-gw-red ml-1">${coin.changePercent.toFixed(2)}%</span>`;
+                }
+
+                const apyBadge = coin.apy 
+                    ? `<span class="bg-gw-apyBg text-gw-apyText text-[11px] font-semibold px-1.5 py-0.5 rounded-md ml-1.5">APY ${coin.apy}</span>` 
+                    : '';
+                
+                const networkBadge = coin.badge 
+                    ? `<span class="bg-[#23272E] text-gw-textMuted text-[10px] font-bold px-1.5 py-0.5 rounded-md ml-1.5">${coin.badge}</span>` 
+                    : '';
+
+                return `
+                    <div onclick="openAdminModal()" class="py-3 flex items-center justify-between gap-3 cursor-pointer active:opacity-75 transition-opacity">
+                        <div class="flex items-center gap-3 min-w-0">
+                            ${getCoinIconHtml(coin.id)}
+                            <div class="min-w-0">
+                                <div class="flex items-center">
+                                    <span class="font-semibold text-[15.5px] text-white truncate">${coin.name}</span>
+                                    ${apyBadge}
+                                    ${networkBadge}
+                                </div>
+                                <div class="text-[13px] text-gw-textMuted mt-0.5">
+                                    <span>${priceFormatted}</span>
+                                    ${changeHtml}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-right shrink-0">
+                            <div class="font-semibold text-[15.5px] text-white">
+                                ${formatCoinAmount(coin.balance)} ${coin.symbol}
+                            </div>
+                            <div class="text-[13px] text-gw-textMuted mt-0.5">
+                                ${formatMoney(usdVal)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // 3. Лента транзакций
+            const feedEmpty = document.getElementById('feed-empty');
+            const feedList = document.getElementById('feed-list');
+
+            if (!state.transactions || state.transactions.length === 0) {
+                feedEmpty.classList.remove('hidden');
+                feedList.classList.add('hidden');
+            } else {
+                feedEmpty.classList.add('hidden');
+                feedList.classList.remove('hidden');
+                feedList.innerHTML = state.transactions.map(tx => {
+                    const isIncoming = tx.type === 'in';
+                    const sign = isIncoming ? '+' : '-';
+                    const colorClass = isIncoming ? 'text-gw-green' : 'text-white';
+                    const iconBg = isIncoming ? 'bg-gw-green/15 text-gw-green' : 'bg-white/10 text-white';
+                    const title = isIncoming ? 'Получено' : 'Отправлено';
+                    const arrow = isIncoming ? '↙' : '↗';
+
+                    return `
+                        <div class="py-3 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-9 h-9 rounded-full ${iconBg} flex items-center justify-center font-bold text-base shrink-0">
+                                    ${arrow}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-[14.5px] font-semibold text-white">${title}</div>
+                                    <div class="text-[12px] text-gw-textMuted truncate">${tx.address} • ${tx.date}</div>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-[14.5px] font-bold ${colorClass}">${sign}${formatCoinAmount(tx.amount)} ${tx.coin}</div>
+                                <div class="text-[11.5px] text-gw-textMuted">${formatMoney(tx.usdValue)}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // 4. Обновление котировок на вкладке Маркет
+            const marketList = document.getElementById('market-list');
+            marketList.innerHTML = state.coins.map(c => {
+                const chColor = c.changePercent >= 0 ? 'text-gw-green' : 'text-gw-red';
+                const chPrefix = c.changePercent > 0 ? '+' : '';
+                return `
+                    <div class="py-2.5 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            ${getCoinIconHtml(c.id)}
+                            <div>
+                                <div class="font-semibold text-sm">${c.name}</div>
+                                <div class="text-xs text-gw-textMuted">${c.id}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold text-sm">${formatMoney(c.priceUsd)}</div>
+                            <div class="text-xs ${chColor}">${chPrefix}${c.changePercent.toFixed(2)}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            calcSwap();
+        }
+
+        // =========================================================================
+        // НАВИГАЦИЯ ПО ВКЛАДКАМ
+        // =========================================================================
+        function switchTab(tabName) {
+            ['wallet', 'market', 'agent', 'apps'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                const pill = document.getElementById(`tab-${t}`);
+                pill.className = 'nav-pill px-3 py-1.5 rounded-full text-[13.5px] font-medium transition-all text-gw-textMuted hover:text-white whitespace-nowrap';
+            });
+
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+            const activePill = document.getElementById(`tab-${tabName}`);
+            activePill.className = 'nav-pill px-3.5 py-1.5 rounded-full text-[13.5px] font-semibold transition-all bg-gw-pillActive text-gw-pillTextActive whitespace-nowrap';
+        }
+
+        // =========================================================================
+        // ПАНЕЛЬ НАСТРОЙКИ БАЛАНСА (АДМИНКА ДЛЯ РОЗЫГРЫША)
+        // =========================================================================
+        function openAdminModal(initialSubTab = 'coins') {
+            document.getElementById('auto-calc-toggle').checked = state.autoCalcBalance;
+            document.getElementById('manual-balance-input').value = state.manualBalance;
+            toggleAutoCalc();
+
+            const listEl = document.getElementById('admin-coins-list');
+            listEl.innerHTML = state.coins.map((c, idx) => `
+                <div class="bg-gw-bg p-3.5 rounded-2xl border border-white/[0.06] space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="coin-en-${idx}" ${c.enabled ? 'checked' : ''} class="w-4 h-4 accent-[#198DF8]">
+                            <span class="font-bold text-sm text-white">${c.name} (${c.id})</span>
+                        </div>
+                        <span class="text-[11px] text-gw-textMuted">Показывать в списке</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-gw-textMuted block mb-1">Баланс монет</label>
+                            <input id="coin-bal-${idx}" type="number" step="any" value="${c.balance}" class="w-full bg-[#1C2026] rounded-xl px-2.5 py-2 text-xs font-bold text-white border border-white/10">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gw-textMuted block mb-1">Цена ($)</label>
+                            <input id="coin-price-${idx}" type="number" step="any" value="${c.priceUsd}" class="w-full bg-[#1C2026] rounded-xl px-2.5 py-2 text-xs font-semibold text-white border border-white/10">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gw-textMuted block mb-1">Изм. (%)</label>
+                            <input id="coin-chg-${idx}" type="number" step="any" value="${c.changePercent}" class="w-full bg-[#1C2026] rounded-xl px-2.5 py-2 text-xs font-semibold text-white border border-white/10">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            switchAdminTab(initialSubTab);
+            document.getElementById('admin-modal').classList.remove('hidden');
+        }
+
+        function switchAdminTab(subTab) {
+            ['coins', 'tx', 'general'].forEach(t => {
+                document.getElementById(`adm-panel-${t}`).classList.add('hidden');
+                document.getElementById(`adm-tab-${t}`).className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 text-gw-textMuted';
+            });
+            document.getElementById(`adm-panel-${subTab}`).classList.remove('hidden');
+            document.getElementById(`adm-tab-${subTab}`).className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#198DF8] text-white';
+        }
+
+        function toggleAutoCalc() {
+            const isAuto = document.getElementById('auto-calc-toggle').checked;
+            const manualBox = document.getElementById('manual-balance-box');
+            if (isAuto) {
+                manualBox.classList.add('hidden');
+            } else {
+                manualBox.classList.remove('hidden');
+            }
+        }
+
+        function saveAdminChanges() {
+            state.autoCalcBalance = document.getElementById('auto-calc-toggle').checked;
+            state.manualBalance = parseFloat(document.getElementById('manual-balance-input').value) || 0;
+
+            state.coins.forEach((c, idx) => {
+                c.enabled = document.getElementById(`coin-en-${idx}`).checked;
+                c.balance = parseFloat(document.getElementById(`coin-bal-${idx}`).value) || 0;
+                c.priceUsd = parseFloat(document.getElementById(`coin-price-${idx}`).value) || 0;
+                c.changePercent = parseFloat(document.getElementById(`coin-chg-${idx}`).value) || 0;
+            });
+
+            saveState();
+            renderApp();
+            closeModal('admin-modal');
+            showToast('Баланс и настройки обновлены');
+        }
+
+        // Добавление транзакции в Ленту
+        function addFakeTransaction() {
+            const type = document.getElementById('tx-type').value;
+            const coinId = document.getElementById('tx-coin').value;
+            const amount = parseFloat(document.getElementById('tx-amount').value) || 0;
+            const date = document.getElementById('tx-date').value || 'Только что';
+            const address = document.getElementById('tx-address').value || 'UQBx7...9fK2';
+            const applyBal = document.getElementById('tx-apply-balance').checked;
+
+            if (amount <= 0) {
+                showToast('Укажите сумму больше 0');
+                return;
+            }
+
+            const coinObj = state.coins.find(c => c.id === coinId);
+            const usdValue = coinObj ? amount * coinObj.priceUsd : amount;
+
+            if (applyBal && coinObj) {
+                coinObj.enabled = true;
+                if (type === 'in') {
+                    coinObj.balance += amount;
+                } else {
+                    coinObj.balance = Math.max(0, coinObj.balance - amount);
+                }
+            }
+
+            state.transactions.unshift({
+                type,
+                coin: coinObj ? coinObj.symbol : coinId,
+                amount,
+                usdValue,
+                date,
+                address
+            });
+
+            saveState();
+            renderApp();
+            closeModal('admin-modal');
+            showToast('Операция добавлена в Ленту');
+        }
+
+        function clearTransactions() {
+            state.transactions = [];
+            saveState();
+            renderApp();
+            showToast('Лента очищена');
+        }
+
+        function setCurrency(symbol, rate) {
+            state.currencySymbol = symbol;
+            state.currencyRate = rate;
+            saveState();
+            renderApp();
+            showToast(`Выбрана валюта: ${symbol}`);
+        }
+
+        function applyPreset(presetName) {
+            if (presetName === 'zero') {
+                state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+            } else if (presetName === 'whale') {
+                state.autoCalcBalance = true;
+                state.coins.forEach(c => {
+                    if (c.id === 'GRAM') { c.enabled = true; c.balance = 85400; c.priceUsd = 0.98; c.changePercent = 14.25; }
+                    if (c.id === 'USDT') { c.enabled = true; c.balance = 32500; c.priceUsd = 1.00; c.changePercent = 0; }
+                    if (c.id === 'TON')  { c.enabled = true; c.balance = 2250; c.priceUsd = 5.45; c.changePercent = 6.80; }
+                    if (c.id === 'NOT')  { c.enabled = true; c.balance = 150000; c.priceUsd = 0.0085; c.changePercent = 11.40; }
+                });
+                state.transactions = [
+                    { type: 'in', coin: 'USD₮', amount: 15000, usdValue: 15000, date: 'Сегодня, 22:45', address: 'UQDr9...8xLp (OKX)' },
+                    { type: 'in', coin: 'GRAM', amount: 25000, usdValue: 24500, date: 'Вчера, 18:12', address: 'UQAm4...2vQw' }
+                ];
+            } else if (presetName === 'rich') {
+                state.autoCalcBalance = true;
+                state.coins.forEach(c => {
+                    if (c.id === 'GRAM') { c.enabled = true; c.balance = 9800; c.priceUsd = 0.96; c.changePercent = 18.40; }
+                    if (c.id === 'USDT') { c.enabled = true; c.balance = 4882; c.priceUsd = 1.00; c.changePercent = 0; }
+                    if (c.id === 'TON')  { c.enabled = false; c.balance = 0; }
+                });
+                state.transactions = [
+                    { type: 'in', coin: 'GRAM', amount: 4200, usdValue: 4032, date: 'Сегодня, 20:15', address: 'UQKp2...7mNz' }
+                ];
+            }
+            saveState();
+            renderApp();
+            closeModal('admin-modal');
+            showToast('Профиль применён!');
+        }
+
+        // =========================================================================
+        // БЫСТРЫЕ ДЕЙСТВИЯ: ПОПОЛНИТЬ / ОТПРАВИТЬ / ОБМЕН / СТЕЙКИНГ
+        // =========================================================================
+        function openActionModal(type) {
+            currentQuickAction = type;
+            const titleEl = document.getElementById('action-modal-title');
+            const btnEl = document.getElementById('action-submit-btn');
+            const addrWrap = document.getElementById('action-address-wrap');
+
+            if (type === 'deposit') {
+                titleEl.textContent = 'Пополнить кошелёк';
+                btnEl.textContent = 'Зачислить средства';
+                addrWrap.classList.add('hidden');
+            } else {
+                titleEl.textContent = 'Отправить криптовалюту';
+                btnEl.textContent = 'Отправить перевод';
+                addrWrap.classList.remove('hidden');
+            }
+            document.getElementById('action-amount').value = '';
+            document.getElementById('action-modal').classList.remove('hidden');
+        }
+
+        function submitQuickAction() {
+            const coinId = document.getElementById('action-coin').value;
+            const amount = parseFloat(document.getElementById('action-amount').value) || 0;
+            const address = document.getElementById('action-address').value || 'UQDr9x...4mLp';
+
+            if (amount <= 0) {
+                showToast('Введите корректную сумму');
+                return;
+            }
+
+            const coinObj = state.coins.find(c => c.id === coinId);
+            coinObj.enabled = true;
+
+            if (currentQuickAction === 'deposit') {
+                coinObj.balance += amount;
+                state.transactions.unshift({
+                    type: 'in',
+                    coin: coinObj.symbol,
+                    amount: amount,
+                    usdValue: amount * coinObj.priceUsd,
+                    date: 'Только что',
+                    address: 'Внешний перевод'
+                });
+                showToast(`+${amount} ${coinObj.symbol} зачислено`);
+            } else {
+                coinObj.balance = Math.max(0, coinObj.balance - amount);
+                state.transactions.unshift({
+                    type: 'out',
+                    coin: coinObj.symbol,
+                    amount: amount,
+                    usdValue: amount * coinObj.priceUsd,
+                    date: 'Только что',
+                    address: address
+                });
+                showToast(`Отправлено ${amount} ${coinObj.symbol}`);
+            }
+
+            saveState();
+            renderApp();
+            closeModal('action-modal');
+        }
+
+        // Обмен в разделе Маркет
+        function calcSwap() {
+            const fromId = document.getElementById('swap-from-coin').value;
+            const toId = document.getElementById('swap-to-coin').value;
+            const amount = parseFloat(document.getElementById('swap-from-amount').value) || 0;
+
+            const fromCoin = state.coins.find(c => c.id === fromId);
+            const toCoin = state.coins.find(c => c.id === toId);
+            if (!fromCoin || !toCoin) return;
+
+            document.getElementById('swap-from-bal').textContent = `Баланс: ${formatCoinAmount(fromCoin.balance)} ${fromCoin.id}`;
+            const rate = fromCoin.priceUsd / toCoin.priceUsd;
+            document.getElementById('swap-rate-info').textContent = `1 ${fromCoin.id} ≈ ${rate.toFixed(4)} ${toCoin.id}`;
+            document.getElementById('swap-to-amount').value = amount > 0 ? (amount * rate).toFixed(2) : '';
+        }
+
+        function executeSwap() {
+            const fromId = document.getElementById('swap-from-coin').value;
+            const toId = document.getElementById('swap-to-coin').value;
+            const amount = parseFloat(document.getElementById('swap-from-amount').value) || 0;
+            const received = parseFloat(document.getElementById('swap-to-amount').value) || 0;
+
+            if (amount <= 0 || fromId === toId) {
+                showToast('Укажите сумму и разные монеты');
+                return;
+            }
+
+            const fromCoin = state.coins.find(c => c.id === fromId);
+            const toCoin = state.coins.find(c => c.id === toId);
+
+            fromCoin.balance = Math.max(0, fromCoin.balance - amount);
+            toCoin.enabled = true;
+            toCoin.balance += received;
+
+            state.transactions.unshift({
+                type: 'in',
+                coin: toCoin.symbol,
+                amount: received,
+                usdValue: received * toCoin.priceUsd,
+                date: 'Только что',
+                address: `Обмен ${fromCoin.id} → ${toCoin.id}`
+            });
+
+            document.getElementById('swap-from-amount').value = '';
+            saveState();
+            renderApp();
+            switchTab('wallet');
+            showToast(`Обменено на ${received} ${toCoin.id}`);
+        }
+
+        // Стейкинг
+        function openStakingModal() {
+            document.getElementById('staking-modal').classList.remove('hidden');
+        }
+
+        function claimStakingReward() {
+            const gram = state.coins.find(c => c.id === 'GRAM');
+            gram.enabled = true;
+            gram.balance += 50;
+            state.transactions.unshift({
+                type: 'in',
+                coin: 'GRAM',
+                amount: 50,
+                usdValue: 50 * gram.priceUsd,
+                date: 'Только что',
+                address: 'Gram Staking APY 13.53%'
+            });
+            saveState();
+            renderApp();
+            closeModal('staking-modal');
+            showToast('+50 GRAM получено за стейкинг!');
+        }
+
+        // QR и буфер обмена
+        function openQrModal() {
+            document.getElementById('qr-modal').classList.remove('hidden');
+        }
+
+        function copyWalletAddress() {
+            const addr = 'UQC8k9mP4vL2xR7tN5wQ1zJ8hF3dG6sA9yE0bV4cX7nM2kL9';
+            const tempInput = document.createElement('input');
+            tempInput.value = addr;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast('Адрес кошелька скопирован!');
+            closeModal('qr-modal');
+        }
+
+        // AI Агент и нижний поиск
+        function handleBottomSearch() {
+            const val = document.getElementById('bottom-search').value.trim();
+            if (!val) return;
+            document.getElementById('bottom-search').value = '';
+            switchTab('agent');
+            document.getElementById('agent-input').value = val;
+            askAgent();
+        }
+
+        function askAgent() {
+            const input = document.getElementById('agent-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+
+            const box = document.getElementById('agent-messages');
+            box.innerHTML += `<div class="bg-[#198DF8] text-white rounded-2xl rounded-tr-sm p-3 ml-8">${text}</div>`;
+
+            const balText = document.getElementById('total-balance-display').textContent;
+            setTimeout(() => {
+                box.innerHTML += `<div class="bg-[#1E2228] text-white/90 rounded-2xl rounded-tl-sm p-3 mr-6">Ваш текущий общий баланс составляет <b>${balText}</b>. Все активы в сети TON защищены.</div>`;
+                box.scrollTop = box.scrollHeight;
+            }, 350);
+        }
+
+        function showInstallHelp() {
+            showToast('Нажмите ⋮ в браузере → «Добавить на гл. экран»');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.remove('opacity-0');
+            setTimeout(() => t.classList.add('opacity-0'), 2400);
+        }
+
+        // Инициализация при загрузке
+        window.onload = function() {
+            renderApp();
+        };
+    </script>
+</body>
+</html>
